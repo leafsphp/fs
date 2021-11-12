@@ -25,7 +25,8 @@
             "Leaf\\": "src"
         }
     },
-    "minimum-stability": "stable",
+    "minimum-stability": "dev",
+	"prefer-stable": true,
     "require": {
         "symfony/finder": "^5.3"
     }
