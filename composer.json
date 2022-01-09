@@ -29,5 +29,8 @@
 	"prefer-stable": true,
     "require": {
         "symfony/finder": "^5.3"
+    },
+    "require-dev": {
+        "pestphp/pest": "^1.21"
     }
 }

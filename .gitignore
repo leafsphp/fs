@@ -1,3 +1,4 @@
+.phpunit*
 test
 Experimental
 vendor
