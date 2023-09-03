@@ -28,9 +28,14 @@
     "minimum-stability": "dev",
 	"prefer-stable": true,
     "require": {
-        "symfony/finder": "^5.3"
+        "symfony/finder": "^5.3|^6.0"
     },
     "require-dev": {
         "pestphp/pest": "^1.21"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }
