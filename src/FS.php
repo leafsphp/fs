@@ -376,6 +376,8 @@ class FS
 
 		if (isset($config["unique"]) && $config["unique"] == true) {
 			$name = strtolower(strtotime(date("Y-m-d H:i:s")) . '_' . str_replace(" ", "_", $file["name"]));
+		} elseif (isset($config["rename"]) && $config["rename"] == true) {
+			$name = $config["name"] ?? str_replace(" ", "_", $file["name"]);
 		} else {
 			$name = str_replace(" ", "_", $file["name"]);
 		}
