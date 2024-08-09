@@ -422,10 +422,13 @@ class FS
 			"category" => $file_category,
 			"path" => $target_file,
 			"parent_directory" => basename(dirname($target_file)),
-			"parent_directory_path" => $target_dir
+			"parent_directory_path" => $target_dir,
+			"public_path" => self::publicPath($target_file),
+			"url" => self::url($target_file)
 		];
 
 		if (move_uploaded_file($temp, $target_file)) {
+			self::$uploadInfo[$name]["status"] = true;
 			return $name;
 		} else {
 			self::$errorsArray["upload"] = "Wasn't able to upload $file_category";
@@ -665,5 +668,29 @@ class FS
 	public static function errors(): array
 	{
 		return self::$errorsArray;
+	}
+
+	/**
+	 * Public path
+	 * Returns a public accessible path for application uploaded files
+  	*
+	 * @param string $path
+	 * @return string
+	 */
+	public static function publicPath($path = "")
+	{
+		return str_replace("storage/app/", "", $path);
+	}
+
+	/**
+	 * Get a file url
+	 * 
+	 * @param string $path
+	 * @return string
+	 */
+	public static function url($path)
+	{
+		$publicPath = StoragePath(self::publicPath($path));
+		return getenv("APP_URL") . $publicPath;
 	}
 }
