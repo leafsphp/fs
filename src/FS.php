@@ -18,10 +18,10 @@ use Symfony\Component\Finder\Finder;
 class FS
 {
 	/**Any errors caught in an FS operation */
-	protected static $errorsArray = [];
+	public static $errorsArray = [];
 
 	/**Details of a file(s) upload */
-	protected static $uploadInfo = [];
+	public static $uploadInfo = [];
 
 	/**File extension types */
 	protected static $extensions = [
