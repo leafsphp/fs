@@ -35,7 +35,7 @@ class Path
      * Return the extension of the path
      * @return string
      */
-    public function extname()
+    public function extension()
     {
         return pathinfo($this->pathToParse, PATHINFO_EXTENSION);
     }
@@ -47,7 +47,7 @@ class Path
      */
     public function join(...$paths)
     {
-        return realpath($this->pathToParse . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $paths));
+        return (new Path($this->pathToParse . DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $paths)))->normalize();
     }
 
     /**
@@ -56,8 +56,30 @@ class Path
      */
     public function normalize()
     {
-        $this->pathToParse = realpath($this->pathToParse);
+        if (file_exists($this->pathToParse) && realpath($this->pathToParse)) {
+            return realpath($this->pathToParse);
+        }
 
-        return $this->pathToParse;
+        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $this->pathToParse);
+        $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
+
+        $normalized = [];
+
+        foreach ($parts as $part) {
+            if ('.' == $part) {
+                continue;
+            }
+
+            switch ('..') {
+                case $part:
+                    array_pop($normalized);
+                    break;
+                default:
+                    $normalized[] = $part;
+                    break;
+            }
+        }
+
+        return implode(DIRECTORY_SEPARATOR, $normalized);
     }
 }

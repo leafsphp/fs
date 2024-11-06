@@ -6,7 +6,7 @@ namespace Leaf\FS;
  * Directory operations
  * ----
  * This class provides a set of methods for local directory operations
- * 
+ *
  * @since 3.0.0
  */
 class Directory
@@ -22,9 +22,9 @@ class Directory
 
     /**
      * Check if a directory exists
-     * 
+     *
      * @param string $dirPath The path of the directory to check
-     * 
+     *
      * @return bool
      */
     public static function exists($filePath)
@@ -33,11 +33,11 @@ class Directory
     }
 
     /**
-     * Create a new dir
-     * 
-     * @param string $dirPath The path of the new dir
-     * @param array $options Options for creating the dir
-     * 
+     * Create a new directory
+     *
+     * @param string $dirPath The path of the new directory
+     * @param array $options Options for creating the directory
+     *
      * @return bool
      */
     public static function create($dirPath, $options = [])
@@ -54,16 +54,16 @@ class Directory
                     time() . '_' . uniqid() . '_' . $path->basename(),
                     $dirPath
                 );
-            } else if ($options['overwrite']) {
+            } elseif ($options['overwrite']) {
                 unlink($dirPath);
             } else {
                 static::$errorsArray['directory'] = 'Directory already exists';
+
                 return false;
             }
         }
 
-
-        return mkdir($path->dirname(), $options['mode'], $options['recursive']);
+        return mkdir($dirPath, $options['mode'], $options['recursive']);
     }
 
     /**
@@ -71,7 +71,7 @@ class Directory
      *
      * @param string $dirname the name of the directory to list
      * @param string|callable|null $pattern
-     * 
+     *
      * @return array|false
      */
     public static function read(string $dirPath, $pattern = null)
@@ -81,11 +81,18 @@ class Directory
 
         if (!static::exists($dirPath)) {
             static::$errorsArray['directory'] = 'Directory does not exist';
+
             return false;
         }
 
+        $parsedFiles = [];
         $files = scandir($dirPath);
-        $files = array_diff($files, ['.', '..']);
+
+        foreach ($files as $file) {
+            if ($file !== '.' && $file !== '..') {
+                $parsedFiles[] = $file;
+            }
+        }
 
         if ($pattern) {
             if (is_callable($pattern)) {
@@ -96,14 +103,14 @@ class Directory
             }
         }
 
-        return $files;
+        return $parsedFiles;
     }
 
     /**
      * Check if a directory is empty
-     * 
+     *
      * @param string $dirPath The path of the directory to check
-     * 
+     *
      * @return bool
      */
     public static function isEmpty(string $dirPath)
@@ -111,19 +118,14 @@ class Directory
         $path = new Path($dirPath);
         $dirPath = $path->normalize();
 
-        if (!static::exists($dirPath)) {
-            static::$errorsArray['directory'] = 'Directory does not exist';
-            return false;
-        }
-
         return count(static::read($dirPath)) === 0;
     }
 
     /**
      * Get all directories in a directory
-     * 
+     *
      * @param string $dirPath The path of the dir to get the directories from
-     * 
+     *
      * @return array|false
      */
     public static function dirs($dirPath)
@@ -147,9 +149,9 @@ class Directory
 
     /**
      * Get all files in a directory
-     * 
+     *
      * @param string $dirPath The path of the dir to get the files from
-     * 
+     *
      * @return array|false
      */
     public static function files($dirPath)
@@ -203,9 +205,9 @@ class Directory
 
     /**
      * Delete a directory
-     * 
+     *
      * @param string $dirPath The path of the directory to delete
-     * 
+     *
      * @return bool
      */
     public static function delete($dirPath, $options = [])
@@ -215,6 +217,7 @@ class Directory
 
         if (!static::exists($dirPath)) {
             static::$errorsArray['directory'] = 'Directory does not exist';
+
             return false;
         }
 
@@ -233,11 +236,11 @@ class Directory
 
     /**
      * Copy a directory
-     * 
+     *
      * @param string $source The path of the dir to copy
      * @param string $destination The path to copy the dir to
      * @param array $options Options for copying the dir
-     * 
+     *
      * @return bool
      */
     public static function copy($source, $destination, $options = [])
@@ -252,22 +255,25 @@ class Directory
 
         if (!static::exists($source)) {
             static::$errorsArray['directory'] = 'Source directory does not exist';
+
             return false;
         }
 
         if (static::exists($destination)) {
             if ($options['overwrite']) {
                 static::delete($destination, [
-                    'recursive' => true
+                    'recursive' => true,
                 ]);
-            } else if ($options['rename']) {
+            } elseif ($options['rename']) {
                 $destination = str_replace(
                     $destinationPath->basename(),
                     time() . '_' . uniqid() . '_' . $destinationPath->basename(),
                     $destination
                 );
+            } elseif ($options['recursive']) {
             } else {
                 static::$errorsArray['directory'] = 'Destination directory already exists';
+
                 return false;
             }
         }
@@ -276,8 +282,8 @@ class Directory
             return copy($source, $destination);
         }
 
-        if (!file_exists($destinationPath->dirname())) {
-            mkdir($destinationPath->dirname(), $options['mode'], $options['recursive']);
+        if (!file_exists($destination)) {
+            mkdir($destination, $options['mode'], $options['recursive']);
         }
 
         $glob = static::read($source);
@@ -295,11 +301,11 @@ class Directory
 
     /**
      * Move a directory to a new location
-     * 
+     *
      * @param string $source The path of the dir to move
      * @param string $destination The path to move the dir to
      * @param array $options Options for moving the dir
-     * 
+     *
      * @return bool
      */
     public static function move($source, $destination, $options = [])
@@ -313,9 +319,9 @@ class Directory
 
     /**
      * Get a summary of the dir information
-     * 
+     *
      * @param string $dirPath The path of the dir to get the summary of
-     * 
+     *
      * @return array|bool
      */
     public static function info($dirPath)
@@ -325,6 +331,7 @@ class Directory
 
         if (!static::exists($dirPath)) {
             static::$errorsArray['directory'] = 'Directory does not exist';
+
             return false;
         }
 
@@ -338,10 +345,10 @@ class Directory
 
     /**
      * Get the total size of a directory
-     * 
+     *
      * @param string $dirPath The path of the directory to get the size of
      * @param string $unit The unit to return the size in
-     * 
+     *
      * @return number
      */
     public static function size($dirPath, $unit = 'byte')
@@ -351,6 +358,7 @@ class Directory
 
         if (!static::exists($dirPath)) {
             static::$errorsArray['directory'] = 'Directory does not exist';
+
             return false;
         }
 

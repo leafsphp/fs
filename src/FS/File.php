@@ -6,7 +6,7 @@ namespace Leaf\FS;
  * File operations
  * ----
  * This class provides a set of methods for local file operations
- * 
+ *
  * @since 3.0.0
  */
 class File
@@ -22,9 +22,9 @@ class File
 
     /**
      * Check if a file exists
-     * 
+     *
      * @param string $filePath The path of the file to check
-     * 
+     *
      * @return bool
      */
     public static function exists($filePath)
@@ -34,11 +34,11 @@ class File
 
     /**
      * Create a new file
-     * 
+     *
      * @param string $filePath The path of the new file
      * @param mixed $content The content of the new file
      * @param array $options Options for creating the file
-     * 
+     *
      * @return bool
      */
     public static function create($filePath, $content = null, $options = [])
@@ -51,12 +51,13 @@ class File
         if (static::exists($filePath)) {
             if ($options['overwrite']) {
                 unlink($filePath);
-            } else if ($options['rename']) {
+            } elseif ($options['rename']) {
                 $filePath = str_replace(
                     $path->basename(),
                     time() . '_' . uniqid() . '_' . $path->basename(),
                     $filePath
                 );
+            } else if ($options['recursive']) {
             } else {
                 static::$errorsArray['file'] = 'File already exists';
                 return false;
@@ -84,9 +85,9 @@ class File
 
     /**
      * Read the content of a file
-     * 
+     *
      * @param string $filePath The path of the file to read
-     * 
+     *
      * @return mixed
      */
     public static function read($filePath)
@@ -106,12 +107,12 @@ class File
     }
 
     /**
-     * Write content to a file
-     * 
+     * Write content to an existing file
+     *
      * @param string $filePath The path of the file to write to
      * @param mixed $content The content to write to the file
      * @param int $mode The mode to write the file in
-     * 
+     *
      * @return bool
      */
     public static function write(string $filePath, $content, int $mode = 0)
@@ -140,9 +141,9 @@ class File
 
     /**
      * Delete a file
-     * 
+     *
      * @param string $filePath The path of the file to delete
-     * 
+     *
      * @return bool
      */
     public static function delete($filePath)
@@ -157,9 +158,9 @@ class File
 
     /**
      * Check if a file is empty
-     * 
+     *
      * @param string $filePath The path of the file to check
-     * 
+     *
      * @return bool
      */
     public static function isEmpty(string $filePath)
@@ -167,21 +168,16 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!static::exists($filePath)) {
-            static::$errorsArray['file'] = 'File does not exist';
-            return false;
-        }
-
         return static::size($filePath) === 0;
     }
 
     /**
      * Copy a file
-     * 
+     *
      * @param string $source The path of the file to copy
      * @param string $destination The path to copy the file to
      * @param array $options Options for copying the file
-     * 
+     *
      * @return bool
      */
     public static function copy($source, $destination, $options = [])
@@ -202,7 +198,7 @@ class File
         if (static::exists($destination)) {
             if ($options['overwrite']) {
                 unlink($destination);
-            } else if ($options['rename']) {
+            } elseif ($options['rename']) {
                 $destination = str_replace(
                     $destinationPath->basename(),
                     time() . '_' . uniqid() . '_' . $destinationPath->basename(),
@@ -210,6 +206,7 @@ class File
                 );
             } else {
                 static::$errorsArray['file'] = 'Destination file already exists';
+
                 return false;
             }
         }
@@ -223,11 +220,11 @@ class File
 
     /**
      * Move a file
-     * 
+     *
      * @param string $source The path of the file to move
      * @param string $destination The path to move the file to
      * @param array $options Options for moving the file
-     * 
+     *
      * @return bool
      */
     public static function move($source, $destination, $options = [])
@@ -248,7 +245,7 @@ class File
         if (static::exists($destination)) {
             if ($options['overwrite']) {
                 unlink($destination);
-            } else if ($options['rename']) {
+            } elseif ($options['rename']) {
                 $destination = str_replace(
                     $destinationPath->basename(),
                     time() . '_' . uniqid() . '_' . $destinationPath->basename(),
@@ -256,6 +253,7 @@ class File
                 );
             } else {
                 static::$errorsArray['file'] = 'Destination file already exists';
+
                 return false;
             }
         }
@@ -269,9 +267,9 @@ class File
 
     /**
      * Get a summary of the file information
-     * 
+     *
      * @param string $filePath The path of the file to get the summary of
-     * 
+     *
      * @return array|bool
      */
     public static function info($filePath)
@@ -288,7 +286,7 @@ class File
             'path' => $filePath,
             'name' => $path->basename(),
             'dirname' => $path->dirname(),
-            'extension' => $path->extname(),
+            'extension' => $path->extension(),
             'size' => static::size($filePath),
             'type' => static::type($filePath),
             'lastModified' => static::lastModified($filePath),
@@ -297,10 +295,10 @@ class File
 
     /**
      * Get the size of a file
-     * 
+     *
      * @param string $filePath The path of the file to get the size of
      * @param string $unit The unit to return the size in
-     * 
+     *
      * @return number
      */
     public static function size($filePath, $unit = 'byte')
@@ -335,9 +333,9 @@ class File
 
     /**
      * Get the system file type of a file
-     * 
+     *
      * @param string $filePath The path of the file to get the type of
-     * 
+     *
      * @return string
      */
     public static function systemType($filePath)
@@ -355,9 +353,9 @@ class File
 
     /**
      * Get the human readable file type of a file
-     * 
+     *
      * @param string $filePath The path of the file to get the type of
-     * 
+     *
      * @return string
      */
     public static function type($filePath)
@@ -365,7 +363,7 @@ class File
         $path = new Path($filePath);
 
         $filePath = $path->normalize();
-        $fileExtension = $path->extname();
+        $fileExtension = $path->extension();
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
@@ -405,6 +403,7 @@ class File
             'rtf' => 'text',
             'tex' => 'text',
             'pdf' => 'text',
+            'md' => 'text',
             'html' => 'text',
             'htm' => 'text',
             'css' => 'text',
@@ -460,9 +459,9 @@ class File
 
     /**
      * Get the mime type of a file
-     * 
+     *
      * @param string $filePath The path of the file to get the mime type of
-     * 
+     *
      * @return string
      */
     public static function mimeType($filePath)
@@ -480,9 +479,9 @@ class File
 
     /**
      * Get the last modified date of a file
-     * 
+     *
      * @param string $filePath The path of the file to get the last modified date of
-     * 
+     *
      * @return string
      */
     public static function lastModified($filePath)

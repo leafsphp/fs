@@ -9,13 +9,7 @@ if (!function_exists('path')) {
      */
     function path(string $path): Leaf\FS\Path
     {
-        if (!(\Leaf\Config::getStatic('path'))) {
-            \Leaf\Config::singleton('path', function () use ($path) {
-                return new \Leaf\FS\Path($path);
-            });
-        }
-
-        return \Leaf\Config::get('path');
+        return new \Leaf\FS\Path($path);
     }
 }
 
