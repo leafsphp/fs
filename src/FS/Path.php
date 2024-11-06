@@ -56,30 +56,31 @@ class Path
      */
     public function normalize()
     {
-        if (file_exists($this->pathToParse) && realpath($this->pathToParse)) {
-            return realpath($this->pathToParse);
-        }
+        if (realpath($this->pathToParse)) {
+            $this->pathToParse = realpath($this->pathToParse);
+        } else {
+            $path = '__FS_NORMALIZE_START__' . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $this->pathToParse);
+            $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
 
-        $path = str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $this->pathToParse);
-        $parts = array_filter(explode(DIRECTORY_SEPARATOR, $path), 'strlen');
+            $normalized = [];
 
-        $normalized = [];
+            foreach ($parts as $part) {
+                if ($part === '.') {
+                    continue;
+                }
 
-        foreach ($parts as $part) {
-            if ('.' == $part) {
-                continue;
-            }
-
-            switch ('..') {
-                case $part:
+                if ($part === '..') {
                     array_pop($normalized);
-                    break;
-                default:
-                    $normalized[] = $part;
-                    break;
+                    continue;
+                }
+
+                $normalized[] = $part;
             }
+
+            $this->pathToParse = implode(DIRECTORY_SEPARATOR, $normalized);
+            $this->pathToParse = str_replace('__FS_NORMALIZE_START__', '', $this->pathToParse);
         }
 
-        return implode(DIRECTORY_SEPARATOR, $normalized);
+        return $this->pathToParse;
     }
 }
