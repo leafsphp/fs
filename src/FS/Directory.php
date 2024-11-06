@@ -96,10 +96,10 @@ class Directory
 
         if ($pattern) {
             if (is_callable($pattern)) {
-                $files = array_filter($files, $pattern);
+                $parsedFiles = array_filter($parsedFiles, $pattern);
             } else {
                 $regex = '$#^' . str_replace(['*', '/'], ['.*', '\/'], $pattern) . '$#i';
-                $files = preg_grep($regex, $files);
+                $parsedFiles = preg_grep($regex, $parsedFiles);
             }
         }
 
@@ -255,7 +255,6 @@ class Directory
 
         if (!static::exists($source)) {
             static::$errorsArray['directory'] = 'Source directory does not exist';
-
             return false;
         }
 
@@ -279,7 +278,13 @@ class Directory
         }
 
         if (!$options['recursive']) {
-            return copy($source, $destination);
+            mkdir($destination, $options['mode']);
+
+            foreach (static::read($source) as $file) {
+                File::copy($source . DIRECTORY_SEPARATOR . $file, $destination . DIRECTORY_SEPARATOR . $file);
+            }
+
+            return true;
         }
 
         if (!file_exists($destination)) {
