@@ -31,3 +31,9 @@ test('Can join paths', function () {
     
     expect(path($path2)->join('file2.txt'))->toBe('/path/to/file2.txt');
 });
+
+test('Can normalize path', function () {
+    $path = '/path/to/../to/file.txt';
+    
+    expect(path($path)->normalize())->toBe('/path/to/file.txt');
+});
