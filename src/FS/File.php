@@ -21,6 +21,18 @@ class File
     ];
 
     /**
+     * Check if a file exists
+     * 
+     * @param string $filePath The path of the file to check
+     * 
+     * @return bool
+     */
+    public static function exists($filePath)
+    {
+        return file_exists($filePath) && is_file($filePath);
+    }
+
+    /**
      * Create a new file
      * 
      * @param string $filePath The path of the new file
@@ -36,22 +48,22 @@ class File
         $filePath = $path->normalize();
         $options = array_merge(static::$fileCreateOptions, $options);
 
-        if (file_exists($filePath) && !$options['overwrite']) {
-            static::$errorsArray['file'] = 'File already exists';
-            return false;
+        if (static::exists($filePath)) {
+            if ($options['overwrite']) {
+                unlink($filePath);
+            } else if ($options['rename']) {
+                $filePath = str_replace(
+                    $path->basename(),
+                    time() . '_' . uniqid() . '_' . $path->basename(),
+                    $filePath
+                );
+            } else {
+                static::$errorsArray['file'] = 'File already exists';
+                return false;
+            }
         }
 
-        if (file_exists($filePath) && $options['rename']) {
-            $filePath = str_replace(
-                $path->basename(),
-                time() . '_' . uniqid() . '_' . $path->basename(),
-                $filePath
-            );
-        } else if (file_exists($filePath) && $options['overwrite']) {
-            unlink($filePath);
-        }
-
-        if ($options['recursive'] && !file_exists($path->dirname())) {
+        if ($options['recursive'] && !Directory::exists($path->dirname())) {
             mkdir($path->dirname(), $options['mode'], $options['recursive']);
         }
 
@@ -85,7 +97,7 @@ class File
         $fileName = $path->basename();
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = "$fileName not found in $dirName";
             return false;
         }
@@ -107,7 +119,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -135,7 +147,7 @@ class File
      */
     public static function delete($filePath)
     {
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -162,12 +174,12 @@ class File
         $destinationPath = new Path($destination);
         $destination = $destinationPath->normalize();
 
-        if (!file_exists($source)) {
+        if (!static::exists($source)) {
             static::$errorsArray['file'] = 'Source file does not exist';
             return false;
         }
 
-        if (file_exists($destination)) {
+        if (static::exists($destination)) {
             if ($options['overwrite']) {
                 unlink($destination);
             } else if ($options['rename']) {
@@ -182,7 +194,7 @@ class File
             }
         }
 
-        if ($options['recursive'] && !file_exists($destinationPath->dirname())) {
+        if ($options['recursive'] && !Directory::exists($destinationPath->dirname())) {
             mkdir($destinationPath->dirname(), $options['mode'], $options['recursive']);
         }
 
@@ -208,12 +220,12 @@ class File
         $destinationPath = new Path($destination);
         $destination = $destinationPath->normalize();
 
-        if (!file_exists($source)) {
+        if (!static::exists($source)) {
             static::$errorsArray['file'] = 'Source file does not exist';
             return false;
         }
 
-        if (file_exists($destination)) {
+        if (static::exists($destination)) {
             if ($options['overwrite']) {
                 unlink($destination);
             } else if ($options['rename']) {
@@ -228,7 +240,7 @@ class File
             }
         }
 
-        if ($options['recursive'] && !file_exists($destinationPath->dirname())) {
+        if ($options['recursive'] && !Directory::exists($destinationPath->dirname())) {
             mkdir($destinationPath->dirname(), $options['mode'], $options['recursive']);
         }
 
@@ -247,7 +259,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -276,7 +288,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -311,7 +323,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -333,7 +345,7 @@ class File
         $filePath = $path->normalize();
         $fileExtension = $path->extname();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -436,7 +448,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
@@ -456,7 +468,7 @@ class File
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
-        if (!file_exists($filePath)) {
+        if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
