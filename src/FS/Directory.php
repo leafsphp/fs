@@ -100,6 +100,26 @@ class Directory
     }
 
     /**
+     * Check if a directory is empty
+     * 
+     * @param string $dirPath The path of the directory to check
+     * 
+     * @return bool
+     */
+    public static function isEmpty(string $dirPath)
+    {
+        $path = new Path($dirPath);
+        $dirPath = $path->normalize();
+
+        if (!static::exists($dirPath)) {
+            static::$errorsArray['directory'] = 'Directory does not exist';
+            return false;
+        }
+
+        return count(static::read($dirPath)) === 0;
+    }
+
+    /**
      * Get all directories in a directory
      * 
      * @param string $dirPath The path of the dir to get the directories from

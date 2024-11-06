@@ -156,6 +156,26 @@ class File
     }
 
     /**
+     * Check if a file is empty
+     * 
+     * @param string $filePath The path of the file to check
+     * 
+     * @return bool
+     */
+    public static function isEmpty(string $filePath)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!static::exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return static::size($filePath) === 0;
+    }
+
+    /**
      * Copy a file
      * 
      * @param string $source The path of the file to copy
@@ -292,6 +312,8 @@ class File
             static::$errorsArray['file'] = 'File does not exist';
             return false;
         }
+
+        clearstatcache();
 
         $size = filesize($filePath);
 
