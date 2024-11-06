@@ -1,0 +1,475 @@
+<?php
+
+namespace Leaf\FS;
+
+/**
+ * File operations
+ * ----
+ * This class provides a set of methods for local file operations
+ * 
+ * @since 3.0.0
+ */
+class File
+{
+    protected static $errorsArray = [];
+
+    protected static $fileCreateOptions = [
+        'mode' => 0777,
+        'rename' => false,
+        'recursive' => false,
+        'overwrite' => false,
+    ];
+
+    /**
+     * Create a new file
+     * 
+     * @param string $filePath The path of the new file
+     * @param mixed $content The content of the new file
+     * @param array $options Options for creating the file
+     * 
+     * @return bool
+     */
+    public static function create($filePath, $content = null, $options = [])
+    {
+        $path = new Path($filePath);
+
+        $filePath = $path->normalize();
+        $options = array_merge(static::$fileCreateOptions, $options);
+
+        if (file_exists($filePath) && !$options['overwrite']) {
+            static::$errorsArray['file'] = 'File already exists';
+            return false;
+        }
+
+        if (file_exists($filePath) && $options['rename']) {
+            $filePath = str_replace(
+                $path->basename(),
+                time() . '_' . uniqid() . '_' . $path->basename(),
+                $filePath
+            );
+        } else if (file_exists($filePath) && $options['overwrite']) {
+            unlink($filePath);
+        }
+
+        if ($options['recursive'] && !file_exists($path->dirname())) {
+            mkdir($path->dirname(), $options['mode'], $options['recursive']);
+        }
+
+        if (!touch($filePath)) {
+            static::$errorsArray['file'] = 'Could not create file';
+            return false;
+        }
+
+        if ($content) {
+            file_put_contents(
+                $filePath,
+                is_callable($content) ? $content() : $content
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * Read the content of a file
+     * 
+     * @param string $filePath The path of the file to read
+     * 
+     * @return mixed
+     */
+    public static function read($filePath)
+    {
+        $path = new Path($filePath);
+
+        $dirName = $path->dirname();
+        $fileName = $path->basename();
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = "$fileName not found in $dirName";
+            return false;
+        }
+
+        return file_get_contents($filePath);
+    }
+
+    /**
+     * Write content to a file
+     * 
+     * @param string $filePath The path of the file to write to
+     * @param mixed $content The content to write to the file
+     * @param int $mode The mode to write the file in
+     * 
+     * @return bool
+     */
+    public static function write(string $filePath, $content, int $mode = 0)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        if (
+            file_put_contents(
+                $filePath,
+                is_callable($content) ? $content(file_get_contents($filePath)) : $content,
+                $mode
+            ) === false
+        ) {
+            static::$errorsArray['file'] = 'Could not write to file';
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Delete a file
+     * 
+     * @param string $filePath The path of the file to delete
+     * 
+     * @return bool
+     */
+    public static function delete($filePath)
+    {
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return unlink($filePath);
+    }
+
+    /**
+     * Copy a file
+     * 
+     * @param string $source The path of the file to copy
+     * @param string $destination The path to copy the file to
+     * @param array $options Options for copying the file
+     * 
+     * @return bool
+     */
+    public static function copy($source, $destination, $options = [])
+    {
+        $options = array_merge(static::$fileCreateOptions, $options);
+
+        $sourcePath = new Path($source);
+        $source = $sourcePath->normalize();
+
+        $destinationPath = new Path($destination);
+        $destination = $destinationPath->normalize();
+
+        if (!file_exists($source)) {
+            static::$errorsArray['file'] = 'Source file does not exist';
+            return false;
+        }
+
+        if (file_exists($destination)) {
+            if ($options['overwrite']) {
+                unlink($destination);
+            } else if ($options['rename']) {
+                $destination = str_replace(
+                    $destinationPath->basename(),
+                    time() . '_' . uniqid() . '_' . $destinationPath->basename(),
+                    $destination
+                );
+            } else {
+                static::$errorsArray['file'] = 'Destination file already exists';
+                return false;
+            }
+        }
+
+        if ($options['recursive'] && !file_exists($destinationPath->dirname())) {
+            mkdir($destinationPath->dirname(), $options['mode'], $options['recursive']);
+        }
+
+        return copy($source, $destination);
+    }
+
+    /**
+     * Move a file
+     * 
+     * @param string $source The path of the file to move
+     * @param string $destination The path to move the file to
+     * @param array $options Options for moving the file
+     * 
+     * @return bool
+     */
+    public static function move($source, $destination, $options = [])
+    {
+        $options = array_merge(static::$fileCreateOptions, $options);
+
+        $sourcePath = new Path($source);
+        $source = $sourcePath->normalize();
+
+        $destinationPath = new Path($destination);
+        $destination = $destinationPath->normalize();
+
+        if (!file_exists($source)) {
+            static::$errorsArray['file'] = 'Source file does not exist';
+            return false;
+        }
+
+        if (file_exists($destination)) {
+            if ($options['overwrite']) {
+                unlink($destination);
+            } else if ($options['rename']) {
+                $destination = str_replace(
+                    $destinationPath->basename(),
+                    time() . '_' . uniqid() . '_' . $destinationPath->basename(),
+                    $destination
+                );
+            } else {
+                static::$errorsArray['file'] = 'Destination file already exists';
+                return false;
+            }
+        }
+
+        if ($options['recursive'] && !file_exists($destinationPath->dirname())) {
+            mkdir($destinationPath->dirname(), $options['mode'], $options['recursive']);
+        }
+
+        return rename($source, $destination);
+    }
+
+    /**
+     * Get a summary of the file information
+     * 
+     * @param string $filePath The path of the file to get the summary of
+     * 
+     * @return array|bool
+     */
+    public static function info($filePath)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return [
+            'path' => $filePath,
+            'name' => $path->basename(),
+            'dirname' => $path->dirname(),
+            'extension' => $path->extname(),
+            'size' => static::size($filePath),
+            'type' => static::type($filePath),
+            'lastModified' => static::lastModified($filePath),
+        ];
+    }
+
+    /**
+     * Get the size of a file
+     * 
+     * @param string $filePath The path of the file to get the size of
+     * @param string $unit The unit to return the size in
+     * 
+     * @return number
+     */
+    public static function size($filePath, $unit = 'byte')
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        $size = filesize($filePath);
+
+        switch ($unit) {
+            case 'byte':
+                return $size;
+            case 'kb':
+                return $size / 1024;
+            case 'mb':
+                return $size / 1024 / 1024;
+            case 'gb':
+                return $size / 1024 / 1024 / 1024;
+            case 'tb':
+                return $size / 1024 / 1024 / 1024 / 1024;
+            default:
+                return $size;
+        }
+    }
+
+    /**
+     * Get the system file type of a file
+     * 
+     * @param string $filePath The path of the file to get the type of
+     * 
+     * @return string
+     */
+    public static function systemType($filePath)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return filetype($filePath);
+    }
+
+    /**
+     * Get the human readable file type of a file
+     * 
+     * @param string $filePath The path of the file to get the type of
+     * 
+     * @return string
+     */
+    public static function type($filePath)
+    {
+        $path = new Path($filePath);
+
+        $filePath = $path->normalize();
+        $fileExtension = $path->extname();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        $extensions = [
+            'jpg' => 'image',
+            'jpeg' => 'image',
+            'png' => 'image',
+            'gif' => 'image',
+            'webp' => 'image',
+            'apng' => 'image',
+            'tif' => 'image',
+            'tiff' => 'image',
+            'svg' => 'image',
+            'pjpeg' => 'image',
+            'pjp' => 'image',
+            'jfif' => 'image',
+            'cur' => 'image',
+            'ico' => 'image',
+            'mp4' => 'video',
+            'webm' => 'video',
+            'swf' => 'video',
+            'flv' => 'video',
+            'wav' => 'audio',
+            'mp3' => 'audio',
+            'ogg' => 'audio',
+            'm4a' => 'audio',
+            'txt' => 'text',
+            'log' => 'text',
+            'xml' => 'text',
+            'doc' => 'text',
+            'docx' => 'text',
+            'odt' => 'text',
+            'wpd' => 'text',
+            'rtf' => 'text',
+            'tex' => 'text',
+            'pdf' => 'text',
+            'html' => 'text',
+            'htm' => 'text',
+            'css' => 'text',
+            'js' => 'text',
+            'php' => 'text',
+            'asp' => 'text',
+            'aspx' => 'text',
+            'cer' => 'text',
+            'cfm' => 'text',
+            'csr' => 'text',
+            'jsp' => 'text',
+            'xhtml' => 'text',
+            'rss' => 'text',
+            'json' => 'text',
+            'dll' => 'text',
+            'htaccess' => 'text',
+            'ppsx' => 'presentation',
+            'pptx' => 'presentation',
+            'ppt' => 'presentation',
+            'pps' => 'presentation',
+            'ppsm' => 'presentation',
+            'key' => 'presentation',
+            'odp' => 'presentation',
+            'zip' => 'compressed',
+            'rar' => 'compressed',
+            'bz' => 'compressed',
+            'gz' => 'compressed',
+            'iso' => 'compressed',
+            'tar.gz' => 'compressed',
+            'tgz' => 'compressed',
+            'zipx' => 'compressed',
+            '7z' => 'compressed',
+            'dmg' => 'compressed',
+            'ods' => 'spreadsheet',
+            'xls' => 'spreadsheet',
+            'xlsx' => 'spreadsheet',
+            'xlsm' => 'spreadsheet',
+            'apk' => 'application',
+            'bat' => 'application',
+            'cgi' => 'application',
+            'pl' => 'application',
+            'com' => 'application',
+            'exe' => 'application',
+            'gadget' => 'application',
+            'jar' => 'application',
+            'msi' => 'application',
+            'py' => 'application',
+            'wsf' => 'application',
+        ];
+
+        return $extensions[$fileExtension] ?? static::systemType($filePath);
+    }
+
+    /**
+     * Get the mime type of a file
+     * 
+     * @param string $filePath The path of the file to get the mime type of
+     * 
+     * @return string
+     */
+    public static function mimeType($filePath)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return mime_content_type($filePath);
+    }
+
+    /**
+     * Get the last modified date of a file
+     * 
+     * @param string $filePath The path of the file to get the last modified date of
+     * 
+     * @return string
+     */
+    public static function lastModified($filePath)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!file_exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return filemtime($filePath);
+    }
+
+    /**
+     * Return all errors that occured during file operations
+     * @return array
+     */
+    public static function errors()
+    {
+        return static::$errorsArray;
+    }
+}
