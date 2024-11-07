@@ -149,9 +149,18 @@ class Storage
         return File::exists($filePath) || Directory::exists($filePath);
     }
 
-    public static function upload(string $filePath, string $destination)
+    /**
+     * Upload a file
+     *
+     * @param mixed $filePath The path of the file to upload
+     * @param string $destination The path to upload the file to
+     * @param array $options Options for uploading the file
+     *
+     * @return bool
+     */
+    public static function upload($filePath, string $destination, array $options = [])
     {
-        //
+        return File::upload($filePath, $destination, $options);
     }
 
     /**

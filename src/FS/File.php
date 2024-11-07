@@ -458,6 +458,95 @@ class File
     }
 
     /**
+     * Upload a file
+     *
+     * @param mixed $file The path of the file to upload
+     * @param string $destination The path to upload the file to
+     * @param array $options Options for uploading the file
+     *
+     * @return array|bool
+     */
+    public static function upload($file, string $destination, array $options = [])
+    {
+        $defaultUploadOptions = [
+            'name' => null,
+            'maxSize' => 0,
+            'validate' => false,
+            'allowedTypes' => [],
+            'allowedExtensions' => [],
+        ];
+
+        $options = array_merge(static::$fileCreateOptions, $defaultUploadOptions, $options);
+
+        $destinationPath = new Path($destination);
+        $destination = $destinationPath->normalize();
+
+        if (!Directory::exists($destination)) {
+            mkdir($destination, $options['mode'], true);
+        }
+
+        $temp = $file['tmp_name'];
+        $name = $options['name'] ?? $file['name'];
+
+        if ($options['maxSize'] > 0 && ($file['size'] > $options['maxSize'])) {
+            static::$errorsArray['upload'] = 'File size exceeds maximum size';
+            return false;
+        }
+
+        if (File::exists($destination . DIRECTORY_SEPARATOR . $name)) {
+            if ($options['overwrite']) {
+                unlink($destination . DIRECTORY_SEPARATOR . $name);
+            } else if ($options['rename']) {
+                $name = time() . '_' . uniqid() . '_' . $name;
+            } else {
+                static::$errorsArray['upload'] = "$name already exists";
+                return false;
+            }
+        }
+
+        if ($options['validate']) {
+            $fileType = static::type($temp);
+            $fileExtension = (new Path($temp))->extension();
+
+            if (
+                !empty($options['allowedTypes']) &&
+                !in_array($fileType, $options['allowedTypes'])
+            ) {
+                static::$errorsArray['upload'] = "File should be of type: $fileType";
+                return false;
+            }
+
+            if (
+                !empty($options['allowedExtensions']) &&
+                !in_array($fileExtension, $options['allowedExtensions'])
+            ) {
+                static::$errorsArray['upload'] = 'File extension not allowed';
+                return false;
+            }
+        }
+
+        $uploadInfo = [
+            'name' => $name,
+            'size' => $file['size'],
+            'type' => static::type($name),
+            'path' => (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize(),
+            'extension' => (new Path($name))->extension(),
+        ];
+
+        try {
+            if (move_uploaded_file($temp, $destination . DIRECTORY_SEPARATOR . $name)) {
+                return $uploadInfo;
+            } else {
+                self::$errorsArray['upload'] = 'Unable able to upload file';
+                return false;
+            }
+        } catch (\Throwable $th) {
+            static::$errorsArray['upload'] = $th->getMessage();
+            return false;
+        }
+    }
+
+    /**
      * Get the mime type of a file
      *
      * @param string $filePath The path of the file to get the mime type of
