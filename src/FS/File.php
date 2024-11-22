@@ -506,7 +506,7 @@ class File
 
         if ($options['validate']) {
             $fileType = static::type($temp);
-            $fileExtension = (new Path($temp))->extension();
+            $fileExtension = (new Path($file['name']))->extension();  // Changed from $temp to $file['name'] to fix extension validation
 
             if (
                 !empty($options['allowedTypes']) &&
