@@ -531,6 +531,11 @@ class File
             'type' => static::type($name),
             'path' => (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize(),
             'extension' => (new Path($name))->extension(),
+            'url' => ($_ENV['APP_URL'] ?? '/') . str_replace('storage/app/public', 'storage', str_replace(
+                str_replace(['public/index.php', 'index.php'], '', $_SERVER['SCRIPT_FILENAME']),
+                '',
+                (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize()
+            ))
         ];
 
         try {
