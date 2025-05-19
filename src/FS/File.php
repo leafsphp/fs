@@ -468,6 +468,15 @@ class File
      */
     public static function upload($file, string $destination, array $options = [])
     {
+        $bucketName = null;
+        $destinationIsBucket = false;
+
+        if (preg_match('/^([a-zA-Z0-9-_]+):\/\//', $destination, $matches)) {
+            $destinationIsBucket = true;
+            $bucketName = $matches[1];
+            $destination = str_replace($matches[0], '', $destination);
+        }
+
         $defaultUploadOptions = [
             'name' => null,
             'maxSize' => 0,
@@ -478,56 +487,62 @@ class File
 
         $options = array_merge(static::$fileCreateOptions, $defaultUploadOptions, $options);
 
-        $destinationPath = new Path($destination);
-        $destination = $destinationPath->normalize();
+        if (!is_resource($file)) {
+            $temp = $file['tmp_name'];
+            $name = $options['name'] ?? $file['name'];
 
-        if (!Directory::exists($destination)) {
-            mkdir($destination, $options['mode'], true);
-        }
+            if ($options['maxSize'] > 0 && ($file['size'] > $options['maxSize'])) {
+                static::$errorsArray['upload'] = 'File size exceeds maximum size';
+                return false;
+            }
 
-        $temp = $file['tmp_name'];
-        $name = $options['name'] ?? $file['name'];
+            if (File::exists($destination . DIRECTORY_SEPARATOR . $name)) {
+                if ($options['overwrite']) {
+                    unlink($destination . DIRECTORY_SEPARATOR . $name);
+                } else if ($options['rename']) {
+                    $name = time() . '_' . uniqid() . '_' . $name;
+                } else {
+                    static::$errorsArray['upload'] = "$name already exists";
+                    return false;
+                }
+            }
 
-        if ($options['maxSize'] > 0 && ($file['size'] > $options['maxSize'])) {
-            static::$errorsArray['upload'] = 'File size exceeds maximum size';
-            return false;
-        }
+            if ($options['validate']) {
+                $fileType = static::type($temp);
+                $fileExtension = (new Path($file['name']))->extension();  // Changed from $temp to $file['name'] to fix extension validation
 
-        if (File::exists($destination . DIRECTORY_SEPARATOR . $name)) {
-            if ($options['overwrite']) {
-                unlink($destination . DIRECTORY_SEPARATOR . $name);
-            } else if ($options['rename']) {
-                $name = time() . '_' . uniqid() . '_' . $name;
+                if (
+                    !empty($options['allowedTypes']) &&
+                    !in_array($fileType, $options['allowedTypes'])
+                ) {
+                    static::$errorsArray['upload'] = "File should be of type: $fileType";
+                    return false;
+                }
+
+                if (
+                    !empty($options['allowedExtensions']) &&
+                    !in_array($fileExtension, $options['allowedExtensions'])
+                ) {
+                    static::$errorsArray['upload'] = 'File extension not allowed';
+                    return false;
+                }
+            }
+
+            if (!$destinationIsBucket) {
+                $destinationPath = new Path($destination);
+                $destination = $destinationPath->normalize();
+
+                if (!Directory::exists($destination)) {
+                    mkdir($destination, $options['mode'], true);
+                }
             } else {
-                static::$errorsArray['upload'] = "$name already exists";
-                return false;
-            }
-        }
-
-        if ($options['validate']) {
-            $fileType = static::type($temp);
-            $fileExtension = (new Path($file['name']))->extension();  // Changed from $temp to $file['name'] to fix extension validation
-
-            if (
-                !empty($options['allowedTypes']) &&
-                !in_array($fileType, $options['allowedTypes'])
-            ) {
-                static::$errorsArray['upload'] = "File should be of type: $fileType";
-                return false;
-            }
-
-            if (
-                !empty($options['allowedExtensions']) &&
-                !in_array($fileExtension, $options['allowedExtensions'])
-            ) {
-                static::$errorsArray['upload'] = 'File extension not allowed';
-                return false;
+                $file = fopen($temp, 'r+');
             }
         }
 
         $uploadInfo = [
             'name' => $name,
-            'size' => $file['size'],
+            'size' => $file['size'] ?? null,
             'type' => static::type($name),
             'path' => (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize(),
             'extension' => (new Path($name))->extension(),
@@ -537,6 +552,24 @@ class File
                 (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize()
             )))
         ];
+
+        if ($destinationIsBucket) {
+            $result = Bucket::connection($bucketName)->upload($file, $destination, [
+                'name' => $name,
+                'overwrite' => $options['overwrite'],
+                'rename' => $options['rename'],
+                'visibility' => $options['visibility'] ?? 'public',
+            ]);
+
+            if (!$result) {
+                static::$errorsArray['upload'] = Bucket::errors();
+                return false;
+            }
+
+            $uploadInfo['url'] = (is_string($result)) ? $result : false;
+
+            return $uploadInfo;
+        }
 
         try {
             if (move_uploaded_file($temp, $destination . DIRECTORY_SEPARATOR . $name)) {
@@ -589,6 +622,26 @@ class File
         }
 
         return filemtime($filePath);
+    }
+
+    /**
+     * Create a resource from a file
+     *
+     * @param string $filePath The path of the file to create a resource from
+     * @param string $mode The mode to open the file in
+     * @return resource|bool
+     */
+    public static function toResource($filePath, $mode = 'r')
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!static::exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        return fopen($filePath, $mode);
     }
 
     /**
