@@ -50,7 +50,6 @@ class File
         if (preg_match('/^([a-zA-Z0-9-_]+):\/\//', $filePath, $matches)) {
             $destinationIsBucket = true;
             $bucketName = $matches[1];
-            $destination = str_replace($matches[0], '', $filePath);
         }
 
         if (!$destinationIsBucket) {
