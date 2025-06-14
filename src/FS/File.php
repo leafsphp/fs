@@ -39,45 +39,70 @@ class File
      * @param mixed $content The content of the new file
      * @param array $options Options for creating the file
      *
-     * @return bool
+     * @return string|bool
      */
     public static function create($filePath, $content = null, $options = [])
     {
-        $path = new Path($filePath);
-
-        $filePath = $path->normalize();
+        $bucketName = null;
+        $destinationIsBucket = false;
         $options = array_merge(static::$fileCreateOptions, $options);
 
-        if (static::exists($filePath)) {
-            if ($options['overwrite']) {
-                unlink($filePath);
-            } elseif ($options['rename']) {
-                $filePath = str_replace(
-                    $path->basename(),
-                    time() . '_' . uniqid() . '_' . $path->basename(),
-                    $filePath
-                );
-            } else if ($options['recursive']) {
-            } else {
-                static::$errorsArray['file'] = 'File already exists';
+        if (preg_match('/^([a-zA-Z0-9-_]+):\/\//', $filePath, $matches)) {
+            $destinationIsBucket = true;
+            $bucketName = $matches[1];
+            $destination = str_replace($matches[0], '', $filePath);
+        }
+
+        if (!$destinationIsBucket) {
+            $path = new Path($filePath);
+            $filePath = $path->normalize();
+
+            if (static::exists($filePath)) {
+                if ($options['overwrite']) {
+                    unlink($filePath);
+                } elseif ($options['rename']) {
+                    $filePath = str_replace(
+                        $path->basename(),
+                        time() . '_' . uniqid() . '_' . $path->basename(),
+                        $filePath
+                    );
+                } else if ($options['recursive']) {
+                } else {
+                    static::$errorsArray['file'] = 'File already exists';
+                    return false;
+                }
+            }
+
+            if ($options['recursive'] && !Directory::exists($path->dirname())) {
+                mkdir($path->dirname(), $options['mode'], $options['recursive']);
+            }
+
+            if (!touch($filePath)) {
+                static::$errorsArray['file'] = 'Could not create file';
                 return false;
             }
-        }
 
-        if ($options['recursive'] && !Directory::exists($path->dirname())) {
-            mkdir($path->dirname(), $options['mode'], $options['recursive']);
-        }
+            if ($content) {
+                file_put_contents(
+                    $filePath,
+                    is_callable($content) ? $content() : $content
+                );
+            }
+        } else {
+            $filePath = str_replace($matches[0], '', $filePath);
+            $filePath = (new Path($filePath))->normalize();
 
-        if (!touch($filePath)) {
-            static::$errorsArray['file'] = 'Could not create file';
-            return false;
-        }
+            if (!($url = Bucket::connection($bucketName)->createFile($filePath, $content, [
+                'name' => (new Path($filePath))->basename(),
+                'overwrite' => $options['overwrite'],
+                'rename' => $options['rename'],
+                'visibility' => $options['visibility'] ?? 'public',
+            ]))) {
+                static::$errorsArray['file'] = Bucket::errors();
+                return false;
+            }
 
-        if ($content) {
-            file_put_contents(
-                $filePath,
-                is_callable($content) ? $content() : $content
-            );
+            return $url;
         }
 
         return true;
