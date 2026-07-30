@@ -375,6 +375,30 @@ class Storage
     }
 
     /**
+     * Check if a path is a folder — alias of isDir(), matching createFolder()
+     *
+     * @param string $dirPath The path to check
+     *
+     * @return bool
+     */
+    public static function isFolder(string $dirPath)
+    {
+        return static::isDir($dirPath);
+    }
+
+    /**
+     * Get a summary of the file/directory information — alias of info()
+     *
+     * @param string $filePath The path of the file/directory to get the summary of
+     *
+     * @return array|bool
+     */
+    public static function fileInfo(string $filePath)
+    {
+        return static::info($filePath);
+    }
+
+    /**
      * Return all errors that occurred
      * @return array
      */
