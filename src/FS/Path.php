@@ -41,6 +41,15 @@ class Path
     }
 
     /**
+     * Return the extension of the path — alias of extension()
+     * @return string
+     */
+    public function extname()
+    {
+        return $this->extension();
+    }
+
+    /**
      * Prepend a part to the path and return a chained instance
      * @param string $part
      * @return Path
