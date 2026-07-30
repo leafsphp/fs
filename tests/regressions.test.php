@@ -215,3 +215,17 @@ test('chunks validates eagerly, before iteration', function () {
         ->and(File::errors()['file'])->toContain('does not exist')
         ->and(File::chunks(TEST_PATH . DIRECTORY_SEPARATOR . 'nope.bin', 0))->toBeFalse();
 });
+
+test('documented aliases fileInfo, isFolder and extname exist', function () {
+    $folder = TEST_PATH . DIRECTORY_SEPARATOR . 'alias-dir';
+    $file = TEST_PATH . DIRECTORY_SEPARATOR . 'alias.txt';
+
+    Directory::create($folder, ['recursive' => true]);
+    File::create($file, 'aliased', ['overwrite' => true]);
+
+    expect(Storage::isFolder($folder))->toBeTrue()
+        ->and(Storage::isFolder($file))->toBeFalse()
+        ->and(Storage::fileInfo($file))->toBeArray()
+        ->and(Storage::fileInfo($file)['name'])->toBe('alias.txt')
+        ->and(path('some/file.txt')->extname())->toBe('txt');
+});
