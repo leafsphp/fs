@@ -65,7 +65,9 @@ class File
                         time() . '_' . uniqid() . '_' . $path->basename(),
                         $filePath
                     );
-                } else if ($options['recursive']) {
+                } elseif ($options['recursive']) {
+                    // recursive create tolerates existing files: generators
+                    // re-run over existing trees without erroring
                 } else {
                     static::$errorsArray['file'] = 'File already exists';
                     return false;
@@ -81,13 +83,18 @@ class File
                 return false;
             }
 
-            if ($content) {
+            if ($content !== null && $content !== false) {
                 file_put_contents(
                     $filePath,
                     is_callable($content) ? $content() : $content
                 );
             }
         } else {
+            if (!class_exists(Bucket::class)) {
+                static::$errorsArray['file'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+                return false;
+            }
+
             $filePath = str_replace($matches[0], '', $filePath);
             $filePath = (new Path($filePath))->normalize();
 
@@ -128,6 +135,130 @@ class File
         }
 
         return file_get_contents($filePath);
+    }
+
+    /**
+     * Read a byte range from a file without loading the whole file
+     *
+     * @param string $filePath The path of the file to read
+     * @param int $start Byte offset to start from (negative = from the end of the file)
+     * @param int|null $length Number of bytes to read (null = to the end of the file)
+     *
+     * @return string|false
+     */
+    public static function readRange($filePath, int $start = 0, ?int $length = null)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        if (!static::exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        $size = filesize($filePath);
+
+        if ($start < 0) {
+            $start = max(0, $size + $start);
+        }
+
+        if ($start > $size) {
+            static::$errorsArray['file'] = "Range start ($start) is beyond the end of the file ($size bytes)";
+            return false;
+        }
+
+        if ($length !== null && $length < 0) {
+            static::$errorsArray['file'] = 'Range length cannot be negative';
+            return false;
+        }
+
+        $handle = fopen($filePath, 'rb');
+
+        if ($handle === false) {
+            static::$errorsArray['file'] = 'Could not open file for reading';
+            return false;
+        }
+
+        fseek($handle, $start);
+
+        $content = $length === null
+            ? stream_get_contents($handle)
+            : ($length === 0 ? '' : (fread($handle, $length) ?: ''));
+
+        fclose($handle);
+
+        return $content;
+    }
+
+    /**
+     * Stream a file in chunks — memory stays flat no matter the file size.
+     * Perfect for serving large downloads or HTTP range responses:
+     *
+     *     foreach (File::chunks('movie.mp4', 1024 * 1024) as $chunk) {
+     *         echo $chunk;
+     *     }
+     *
+     * @param string $filePath The path of the file to stream
+     * @param int $chunkSize Bytes per chunk (default 1MB)
+     * @param int $start Byte offset to start from (negative = from the end of the file)
+     * @param int|null $length Total bytes to stream (null = to the end of the file)
+     *
+     * @return \Generator|false Generator yielding string chunks, false on error
+     */
+    public static function chunks($filePath, int $chunkSize = 1048576, int $start = 0, ?int $length = null)
+    {
+        $path = new Path($filePath);
+        $filePath = $path->normalize();
+
+        // validate eagerly — a generator would defer errors until iteration
+        if (!static::exists($filePath)) {
+            static::$errorsArray['file'] = 'File does not exist';
+            return false;
+        }
+
+        if ($chunkSize < 1) {
+            static::$errorsArray['file'] = 'Chunk size must be at least 1 byte';
+            return false;
+        }
+
+        $size = filesize($filePath);
+
+        if ($start < 0) {
+            $start = max(0, $size + $start);
+        }
+
+        if ($start > $size) {
+            static::$errorsArray['file'] = "Range start ($start) is beyond the end of the file ($size bytes)";
+            return false;
+        }
+
+        $remaining = $length === null ? ($size - $start) : min($length, $size - $start);
+
+        return (static function () use ($filePath, $chunkSize, $start, $remaining) {
+            $handle = fopen($filePath, 'rb');
+
+            if ($handle === false) {
+                return;
+            }
+
+            try {
+                fseek($handle, $start);
+
+                while ($remaining > 0 && !feof($handle)) {
+                    $chunk = fread($handle, min($chunkSize, $remaining));
+
+                    if ($chunk === false || $chunk === '') {
+                        break;
+                    }
+
+                    $remaining -= strlen($chunk);
+
+                    yield $chunk;
+                }
+            } finally {
+                fclose($handle);
+            }
+        })();
     }
 
     /**
@@ -394,6 +525,18 @@ class File
             return false;
         }
 
+        return static::typeFromExtension($fileExtension) ?? static::systemType($filePath);
+    }
+
+    /**
+     * Map a file extension to a human readable type — no filesystem checks
+     *
+     * @param string $extension The extension to map (without the dot)
+     *
+     * @return string|null
+     */
+    public static function typeFromExtension($extension)
+    {
         $extensions = [
             'jpg' => 'image',
             'jpeg' => 'image',
@@ -478,7 +621,7 @@ class File
             'wsf' => 'application',
         ];
 
-        return $extensions[$fileExtension] ?? static::systemType($filePath);
+        return $extensions[strtolower((string) $extension)] ?? null;
     }
 
     /**
@@ -511,6 +654,39 @@ class File
 
         $options = array_merge(static::$fileCreateOptions, $defaultUploadOptions, $options);
 
+        if ($destinationIsBucket && !class_exists(Bucket::class)) {
+            static::$errorsArray['upload'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+            return false;
+        }
+
+        if (is_resource($file)) {
+            // raw resources carry no name of their own — bucket uploads only
+            if (!$destinationIsBucket) {
+                static::$errorsArray['upload'] = 'Resource uploads are only supported for storage buckets. Pass an uploaded file array instead.';
+                return false;
+            }
+
+            $name = $options['name'] ?? basename((string) (stream_get_meta_data($file)['uri'] ?? 'upload_' . uniqid()));
+        }
+
+        // a plain path can be uploaded too: the source file is copied, never moved
+        $sourceIsPath = is_string($file);
+
+        if ($sourceIsPath) {
+            $sourcePath = (new Path($file))->normalize();
+
+            if (!static::exists($sourcePath)) {
+                static::$errorsArray['upload'] = "$file does not exist";
+                return false;
+            }
+
+            $file = [
+                'tmp_name' => $sourcePath,
+                'name' => basename($sourcePath),
+                'size' => filesize($sourcePath),
+            ];
+        }
+
         if (!is_resource($file)) {
             $temp = $file['tmp_name'];
             $name = $options['name'] ?? $file['name'];
@@ -532,14 +708,16 @@ class File
             }
 
             if ($options['validate']) {
-                $fileType = static::type($temp);
-                $fileExtension = (new Path($file['name']))->extension();  // Changed from $temp to $file['name'] to fix extension validation
+                // the tmp file has no extension, so type validation must work
+                // from the original upload's name
+                $fileExtension = (new Path($file['name']))->extension();
+                $fileType = static::typeFromExtension($fileExtension);
 
                 if (
                     !empty($options['allowedTypes']) &&
                     !in_array($fileType, $options['allowedTypes'])
                 ) {
-                    static::$errorsArray['upload'] = "File should be of type: $fileType";
+                    static::$errorsArray['upload'] = 'File type not allowed (got ' . ($fileType ?? 'unknown') . ', expected: ' . implode(', ', $options['allowedTypes']) . ')';
                     return false;
                 }
 
@@ -566,12 +744,12 @@ class File
 
         $uploadInfo = [
             'name' => $name,
-            'size' => $file['size'] ?? null,
-            'type' => static::type($name),
+            'size' => is_array($file) ? ($file['size'] ?? null) : null,
+            'type' => static::typeFromExtension((new Path($name))->extension()) ?? 'file',
             'path' => (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize(),
             'extension' => (new Path($name))->extension(),
             'url' => (rtrim($_ENV['APP_URL'] ?? '/', '/') . DIRECTORY_SEPARATOR . str_replace('storage/app/public', 'storage', str_replace(
-                str_replace(['public/index.php', 'index.php'], '', $_SERVER['SCRIPT_FILENAME']),
+                str_replace(['public/index.php', 'index.php'], '', $_SERVER['SCRIPT_FILENAME'] ?? ''),
                 '',
                 (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize()
             )))
@@ -596,12 +774,23 @@ class File
         }
 
         try {
-            if (move_uploaded_file($temp, $destination . DIRECTORY_SEPARATOR . $name)) {
-                return $uploadInfo;
+            // move_uploaded_file only works for real HTTP uploads — fall back
+            // to copy for plain path sources (never destroy the user's file)
+            // and rename for other tmp-style flows
+            if (is_uploaded_file($temp)) {
+                $moved = move_uploaded_file($temp, $destination . DIRECTORY_SEPARATOR . $name);
+            } elseif ($sourceIsPath) {
+                $moved = copy($temp, $destination . DIRECTORY_SEPARATOR . $name);
             } else {
-                self::$errorsArray['upload'] = 'Unable able to upload file';
-                return false;
+                $moved = rename($temp, $destination . DIRECTORY_SEPARATOR . $name);
             }
+
+            if ($moved) {
+                return $uploadInfo;
+            }
+
+            static::$errorsArray['upload'] = 'Unable to upload file';
+            return false;
         } catch (\Throwable $th) {
             static::$errorsArray['upload'] = $th->getMessage();
             return false;
