@@ -229,3 +229,27 @@ test('documented aliases fileInfo, isFolder and extname exist', function () {
         ->and(Storage::fileInfo($file)['name'])->toBe('alias.txt')
         ->and(path('some/file.txt')->extname())->toBe('txt');
 });
+
+test('stream wrapper paths are not mistaken for bucket paths', function () {
+    // bucket routing keys off a `scheme://` prefix, and php's own wrappers
+    // look identical — they must keep working as local/stream reads
+    $parse = new ReflectionMethod(\Leaf\FS\File::class, 'parseBucketPath');
+    $parse->setAccessible(true);
+
+    foreach (['php://input', 'https://example.com/a.txt', 'file:///etc/hosts', 'data://text/plain,hi'] as $path) {
+        expect($parse->invoke(null, $path))->toBeNull();
+    }
+
+    // a bucket connection name is not a registered wrapper, so it still routes
+    expect($parse->invoke(null, 's3://bucket/file.txt'))->toBe(['s3', 'bucket/file.txt']);
+});
+
+test('stream wrapper paths fail as local paths, not as bucket errors', function () {
+    // Path::normalize() has never handled wrapper urls, so these were
+    // already unusable. What matters is that they stay a local-path miss
+    // instead of being routed to a bucket that was never configured.
+    $result = \Leaf\FS\File::read('file:///tmp/leaf-does-not-exist.txt');
+
+    expect($result)->toBeFalse();
+    expect(\Leaf\FS\File::errors()['file'] ?? '')->not->toContain('leafs/s3');
+});

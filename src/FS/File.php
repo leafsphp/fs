@@ -13,6 +13,53 @@ class File
 {
     protected static $errorsArray = [];
 
+    /**
+     * Split a `bucket://path` string into its connection name and path
+     *
+     * Returns null for ordinary local paths, so callers can branch on it.
+     *
+     * @param string $filePath The path to inspect
+     * @return array{0: string, 1: string}|null
+     */
+    protected static function parseBucketPath($filePath): ?array
+    {
+        if (!is_string($filePath) || !preg_match('/^([a-zA-Z0-9-_]+):\/\//', $filePath, $matches)) {
+            return null;
+        }
+
+        if (in_array($matches[1], stream_get_wrappers(), true)) {
+            return null;
+        }
+
+        return [$matches[1], (new Path(str_replace($matches[0], '', $filePath)))->normalize()];
+    }
+
+    /**
+     * Resolve the bucket for a `bucket://path`, or false when the s3 module
+     * isn't installed
+     *
+     * @param string $bucketName The connection name
+     * @return \Leaf\FS\Bucket|false
+     */
+    protected static function bucketFor(string $bucketName)
+    {
+        if (!class_exists(Bucket::class)) {
+            static::$errorsArray['file'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+
+            return false;
+        }
+
+        $connection = Bucket::connection($bucketName);
+
+        if (!$connection) {
+            static::$errorsArray['file'] = Bucket::errors();
+
+            return false;
+        }
+
+        return $connection;
+    }
+
     protected static $fileCreateOptions = [
         'mode' => 0777,
         'rename' => false,
@@ -29,6 +76,12 @@ class File
      */
     public static function exists($filePath)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            return $connection ? $connection->exists($bucket[1]) : false;
+        }
+
         return file_exists($filePath) && is_file($filePath);
     }
 
@@ -123,6 +176,12 @@ class File
      */
     public static function read($filePath)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            return $connection ? $connection->read($bucket[1]) : false;
+        }
+
         $path = new Path($filePath);
 
         $dirName = $path->dirname();
@@ -272,6 +331,21 @@ class File
      */
     public static function write(string $filePath, $content, int $mode = 0)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            if (!$connection) {
+                return false;
+            }
+
+            // callables receive the current contents, same as local writes
+            if (is_callable($content)) {
+                $content = $content($connection->read($bucket[1]) ?: '');
+            }
+
+            return $connection->write($bucket[1], (string) $content);
+        }
+
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
@@ -303,6 +377,12 @@ class File
      */
     public static function delete($filePath)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            return $connection ? $connection->delete($bucket[1]) : false;
+        }
+
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
             return false;
@@ -458,17 +538,26 @@ class File
      */
     public static function size($filePath, $unit = 'byte')
     {
-        $path = new Path($filePath);
-        $filePath = $path->normalize();
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+            $size = $connection ? $connection->size($bucket[1]) : false;
 
-        if (!static::exists($filePath)) {
-            static::$errorsArray['file'] = 'File does not exist';
-            return false;
+            if ($size === false) {
+                return false;
+            }
+        } else {
+            $path = new Path($filePath);
+            $filePath = $path->normalize();
+
+            if (!static::exists($filePath)) {
+                static::$errorsArray['file'] = 'File does not exist';
+                return false;
+            }
+
+            clearstatcache();
+
+            $size = filesize($filePath);
         }
-
-        clearstatcache();
-
-        $size = filesize($filePath);
 
         switch ($unit) {
             case 'byte':
@@ -806,6 +895,12 @@ class File
      */
     public static function mimeType($filePath)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            return $connection ? $connection->mimeType($bucket[1]) : false;
+        }
+
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
@@ -826,6 +921,12 @@ class File
      */
     public static function lastModified($filePath)
     {
+        if ($bucket = static::parseBucketPath($filePath)) {
+            $connection = static::bucketFor($bucket[0]);
+
+            return $connection ? $connection->lastModified($bucket[1]) : false;
+        }
+
         $path = new Path($filePath);
         $filePath = $path->normalize();
 
