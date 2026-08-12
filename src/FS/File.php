@@ -125,6 +125,7 @@ class File
                     // re-run over existing trees without erroring
                 } else {
                     static::$errorsArray['file'] = 'File already exists';
+
                     return false;
                 }
             }
@@ -135,6 +136,7 @@ class File
 
             if (!touch($filePath)) {
                 static::$errorsArray['file'] = 'Could not create file';
+
                 return false;
             }
 
@@ -147,6 +149,7 @@ class File
         } else {
             if (!class_exists(Bucket::class)) {
                 static::$errorsArray['file'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+
                 return false;
             }
 
@@ -160,6 +163,7 @@ class File
                 'visibility' => $options['visibility'] ?? 'public',
             ]))) {
                 static::$errorsArray['file'] = Bucket::errors();
+
                 return false;
             }
 
@@ -192,6 +196,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = "$fileName not found in $dirName";
+
             return false;
         }
 
@@ -214,6 +219,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -225,11 +231,13 @@ class File
 
         if ($start > $size) {
             static::$errorsArray['file'] = "Range start ($start) is beyond the end of the file ($size bytes)";
+
             return false;
         }
 
         if ($length !== null && $length < 0) {
             static::$errorsArray['file'] = 'Range length cannot be negative';
+
             return false;
         }
 
@@ -237,6 +245,7 @@ class File
 
         if ($handle === false) {
             static::$errorsArray['file'] = 'Could not open file for reading';
+
             return false;
         }
 
@@ -274,11 +283,13 @@ class File
         // validate eagerly — a generator would defer errors until iteration
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
         if ($chunkSize < 1) {
             static::$errorsArray['file'] = 'Chunk size must be at least 1 byte';
+
             return false;
         }
 
@@ -290,6 +301,7 @@ class File
 
         if ($start > $size) {
             static::$errorsArray['file'] = "Range start ($start) is beyond the end of the file ($size bytes)";
+
             return false;
         }
 
@@ -353,6 +365,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -364,6 +377,7 @@ class File
             ) === false
         ) {
             static::$errorsArray['file'] = 'Could not write to file';
+
             return false;
         }
 
@@ -387,6 +401,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -429,6 +444,7 @@ class File
 
         if (!static::exists($source)) {
             static::$errorsArray['file'] = 'Source file does not exist';
+
             return false;
         }
 
@@ -476,6 +492,7 @@ class File
 
         if (!static::exists($source)) {
             static::$errorsArray['file'] = 'Source file does not exist';
+
             return false;
         }
 
@@ -516,6 +533,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -553,6 +571,7 @@ class File
 
             if (!static::exists($filePath)) {
                 static::$errorsArray['file'] = 'File does not exist';
+
                 return false;
             }
 
@@ -591,6 +610,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -613,6 +633,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -747,6 +768,7 @@ class File
 
         if ($destinationIsBucket && !class_exists(Bucket::class)) {
             static::$errorsArray['upload'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+
             return false;
         }
 
@@ -754,6 +776,7 @@ class File
             // raw resources carry no name of their own — bucket uploads only
             if (!$destinationIsBucket) {
                 static::$errorsArray['upload'] = 'Resource uploads are only supported for storage buckets. Pass an uploaded file array instead.';
+
                 return false;
             }
 
@@ -768,6 +791,7 @@ class File
 
             if (!static::exists($sourcePath)) {
                 static::$errorsArray['upload'] = "$file does not exist";
+
                 return false;
             }
 
@@ -784,16 +808,18 @@ class File
 
             if ($options['maxSize'] > 0 && ($file['size'] > $options['maxSize'])) {
                 static::$errorsArray['upload'] = 'File size exceeds maximum size';
+
                 return false;
             }
 
             if (File::exists($destination . DIRECTORY_SEPARATOR . $name)) {
                 if ($options['overwrite']) {
                     unlink($destination . DIRECTORY_SEPARATOR . $name);
-                } else if ($options['rename']) {
+                } elseif ($options['rename']) {
                     $name = time() . '_' . uniqid() . '_' . $name;
                 } else {
                     static::$errorsArray['upload'] = "$name already exists";
+
                     return false;
                 }
             }
@@ -809,6 +835,7 @@ class File
                     !in_array($fileType, $options['allowedTypes'])
                 ) {
                     static::$errorsArray['upload'] = 'File type not allowed (got ' . ($fileType ?? 'unknown') . ', expected: ' . implode(', ', $options['allowedTypes']) . ')';
+
                     return false;
                 }
 
@@ -817,6 +844,7 @@ class File
                     !in_array($fileExtension, $options['allowedExtensions'])
                 ) {
                     static::$errorsArray['upload'] = 'File extension not allowed';
+
                     return false;
                 }
             }
@@ -843,7 +871,7 @@ class File
                 str_replace(['public/index.php', 'index.php'], '', $_SERVER['SCRIPT_FILENAME'] ?? ''),
                 '',
                 (new Path($destination . DIRECTORY_SEPARATOR . $name))->normalize()
-            )))
+            ))),
         ];
 
         if ($destinationIsBucket) {
@@ -856,6 +884,7 @@ class File
 
             if (!$result) {
                 static::$errorsArray['upload'] = Bucket::errors();
+
                 return false;
             }
 
@@ -881,9 +910,11 @@ class File
             }
 
             static::$errorsArray['upload'] = 'Unable to upload file';
+
             return false;
         } catch (\Throwable $th) {
             static::$errorsArray['upload'] = $th->getMessage();
+
             return false;
         }
     }
@@ -908,6 +939,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -934,6 +966,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 
@@ -954,6 +987,7 @@ class File
 
         if (!static::exists($filePath)) {
             static::$errorsArray['file'] = 'File does not exist';
+
             return false;
         }
 

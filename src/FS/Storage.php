@@ -18,6 +18,7 @@ class Storage
     {
         if (!class_exists(Bucket::class)) {
             static::$errorsArray['storage'] = 'Storage buckets require the leafs/s3 module. Run `composer require leafs/s3` first.';
+
             return;
         }
 
@@ -292,6 +293,7 @@ class Storage
     {
         if (!static::exists($name)) {
             static::$errorsArray['storage'] = 'Source does not exist';
+
             return false;
         }
 
@@ -309,7 +311,7 @@ class Storage
     {
         if (is_dir($source)) {
             return Directory::delete($source, [
-                'recursive' => true
+                'recursive' => true,
             ]);
         }
 

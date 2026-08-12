@@ -209,6 +209,7 @@ class Directory
 
         if (!@rmdir($dirPath)) {
             static::$errorsArray['directory'] = 'Could not delete directory — it may not be empty (pass the `recursive` option)';
+
             return false;
         }
 
@@ -236,6 +237,7 @@ class Directory
 
         if (!static::exists($source)) {
             static::$errorsArray['directory'] = 'Source directory does not exist';
+
             return false;
         }
 

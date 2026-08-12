@@ -100,6 +100,7 @@ class Path
 
                 if ($part === '..') {
                     array_pop($normalized);
+
                     continue;
                 }
 
