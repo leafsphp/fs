@@ -242,6 +242,10 @@ test('stream wrapper paths are not mistaken for bucket paths', function () {
 
     // a bucket connection name is not a registered wrapper, so it still routes
     expect($parse->invoke(null, 's3://bucket/file.txt'))->toBe(['s3', 'bucket/file.txt']);
+
+    // object keys stay forward-slash on every OS — normalize() speaks
+    // DIRECTORY_SEPARATOR, which turned keys into backslashes on Windows
+    expect($parse->invoke(null, 's3://bucket\\nested\\file.txt'))->toBe(['s3', 'bucket/nested/file.txt']);
 });
 
 test('stream wrapper paths fail as local paths, not as bucket errors', function () {

@@ -31,7 +31,9 @@ class File
             return null;
         }
 
-        return [$matches[1], (new Path(str_replace($matches[0], '', $filePath)))->normalize()];
+        $objectKey = (new Path(str_replace($matches[0], '', $filePath)))->normalize();
+
+        return [$matches[1], str_replace('\\', '/', $objectKey)];
     }
 
     /**
