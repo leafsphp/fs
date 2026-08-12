@@ -36,7 +36,7 @@
     "require-dev": {
         "pestphp/pest": "*",
         "leafs/alchemy": "v5.x-dev",
-        "friendsofphp/php-cs-fixer": "^3.64"
+        "friendsofphp/php-cs-fixer": "*"
     },
     "config": {
         "allow-plugins": {
@@ -54,10 +54,5 @@
     },
     "suggest": {
         "leafs/s3": "Required for storage bucket support (s3:// paths in File::create/upload)"
-    },
-    "extra": {
-        "branch-alias": {
-            "dev-v5.x": "5.0.x-dev"
-        }
     }
 }
